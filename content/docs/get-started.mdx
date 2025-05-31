@@ -1,0 +1,83 @@
+---
+title: Get Started
+description: Get Started with Thinagents
+---
+
+import { Step, Steps } from 'fumadocs-ui/components/steps';
+
+<Steps>
+<Step title="Step 1">
+### Install Thinagents
+```bash
+pip install -U thinagents
+```
+</Step>
+<Step>
+### Set Environment Variables
+<Tabs items={['OpenAI', 'Anthropic', 'Gemini', 'Azure OpenAI']}>
+  <Tab value="OpenAI">
+  ```py
+  os.environ["OPENAI_API_KEY"] = "your-api-key"
+  ```
+  for more information, see [litellm_openai](https://docs.litellm.ai/docs/providers/openai/)
+  </Tab>
+
+  <Tab value="Anthropic">
+  ```py
+  os.environ["ANTHROPIC_API_KEY"] = "your-api-key"
+  ```
+  for more information, see [litellm_anthropic](https://docs.litellm.ai/docs/providers/anthropic/)
+  </Tab>
+
+  <Tab value="Gemini">
+  ```py
+  os.environ["GEMINI_API_KEY"] = "your-api-key"
+  ```
+  for more information, see [litellm_gemini](https://docs.litellm.ai/docs/providers/gemini/)
+  </Tab>
+  
+  <Tab value="Azure OpenAI">
+  ```py
+  os.environ["AZURE_API_KEY"] = "your-api-key"
+  os.environ["AZURE_API_BASE"] = "https://example-endpoint.openai.azure.com"
+  os.environ["AZURE_API_VERSION"] = "2023-05-15"
+  ```
+  for more information, see [litellm_azure](https://docs.litellm.ai/docs/providers/azure/)
+  </Tab>
+</Tabs>
+</Step>
+<Step>
+### Create an Agent
+```py
+from thinagents import Agent
+
+agent = Agent(
+    name="Greeting Agent",
+    model="openai/gpt-4o-mini",
+)
+
+response = agent.run("Hello, how are you?")
+print(response.content)
+```
+
+<Step>
+### Agent with tools
+```py
+from thinagents import Agent
+
+def get_weather(city: str) -> str: 
+    return f"The weather in {city} is sunny."
+
+agent = Agent(
+    name="Weather Agent",
+    model="openai/gpt-4o-mini",
+    tools=[get_weather],
+)
+
+response = agent.run("What is the weather in Tokyo?")
+print(response.content)
+```
+
+</Step>
+</Step>
+</Steps>

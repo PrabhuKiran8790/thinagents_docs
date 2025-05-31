@@ -1,0 +1,182 @@
+---
+title: Tools
+description: Using Tools in Thinagents
+icon: Wrench
+---
+
+import { TypeTable } from 'fumadocs-ui/components/type-table';
+
+# Supercharge Your Agents with Tools
+
+Tools are the secret sauce that make Thinagents agents truly powerful. With tools, your agent can do more than just chat—it can take action, fetch data, and even call other agents. In Thinagents, tools are simply Python functions that you register with your agent.
+
+## What Are Tools?
+
+A **tool** is any callable (function or method) that you add to your agent. When the agent receives a prompt, it can decide to call one of its tools to help answer the question or complete a task. Tools can be as simple as a math function or as complex as a database query or API call.
+
+## Using Normal Functions as Tools
+
+You can pass any regular Python function to the `tools` parameter when creating your agent. Thinagents will automatically inspect the function's signature and docstring to help the agent understand when and how to use it.
+
+```py
+from thinagents import Agent
+
+def add(a: int, b: int) -> int:
+    "Add two numbers"
+    return a + b
+
+agent = Agent(
+    name="Math Agent",
+    model="openai/gpt-4o-mini",
+    tools=[add],
+)
+
+response = agent.run("What is 2 + 3?")
+print(response.content)  # Output: 5
+```
+
+## Advanced: Decorated Functions for Richer Tools
+
+For more advanced use cases, Thinagents supports decorated tools. By using the `@tool` decorator, you can provide extra metadata or control how the agent and LLM handle the tool's output. For example, you can use the `return_type` argument to specify how Thinagents should route the tool's return value, or the `name` argument to customize the tool's name.
+
+```py
+from thinagents import Agent, tool
+
+@tool(name="get_weather")
+def get_weather(city: str) -> str:
+    # Imagine this calls a real weather API
+    return f"The weather in {city} is sunny."
+
+agent = Agent(
+    name="Weather Pro",
+    model="openai/gpt-4o-mini",
+    tools=[get_weather],
+)
+
+response = agent.run("What's the weather in Paris?")
+print(response.content)
+```
+
+With the `@tool` decorator, you can:
+
+- Optionally provide a custom name for the tool using `name`
+- Control how Thinagents and the LLM handle the tool's output using `return_type`
+- (Advanced) Provide a Pydantic model for parameter validation and schema control using `pydantic_schema`
+
+<Callout title="Notes">
+- The `return_type` argument tells Thinagents how to route the tool's return value, especially for LLMs. It does **not** change how your function itself handles output.
+- If `return_type="content"` (the default), the tool's return value is sent directly to the LLM for the next step.
+- If `return_type="content_and_artifact"`, your tool should return a tuple `(content, artifact)`. The `content` (usually a summary or small result) is sent to the LLM, while the `artifact` (which can be a large dataset, file, or other object) is made available in the `ThinagentResponse` for downstream use, but is **not** sent to the LLM.
+</Callout>
+
+### Example: Returning Content and Artifact
+
+Sometimes, you want to return a large result (like a dataset or file) but only send a summary to the LLM. Use `return_type="content_and_artifact"` for this:
+
+```py
+from thinagents import tool
+
+@tool(return_type="content_and_artifact")
+def summarize_and_return_data(query: str) -> tuple[str, dict]:
+    # Imagine this fetches a large dataset and summarizes it
+    data = {"rows": list(range(10000))}  # Large artifact
+    summary = f"Found {len(data['rows'])} rows for query: {query}"
+    return summary, data
+
+response = agent.run("Summarize the data for X")
+print(response.content)      # Sent to LLM: e.g., "Found 10000 rows for query: X"
+print(response.artifact)     # Available for downstream use: the full data
+```
+
+### Using Pydantic Schemas for Tool Parameters
+
+You can use a Pydantic model to define and validate your tool's parameters. Pass the Pydantic class to the `pydantic_schema` argument.
+
+```py
+from pydantic import BaseModel, Field
+from thinagents import Agent, tool
+
+class MultiplyInputSchema(BaseModel):
+    """Multiply two numbers"""
+    a: int = Field(description="First operand")
+    b: int = Field(description="Second operand")
+
+@tool(name="multiply_tool", pydantic_schema=MultiplyInputSchema)
+def multiply(a: int, b: int) -> int:
+    return a * b
+
+agent = Agent(
+    name="Math Agent",
+    model="openai/gpt-4o-mini",
+    tools=[multiply],
+)
+
+response = agent.run("What is 6 * 7?")
+print(response.content)  # Output: 42
+```
+
+- The tool's name will be `multiply_tool` (as given by the `name` argument).
+- The tool's description will be taken from the Pydantic class docstring.
+- The parameter schema will be enforced and described using the Pydantic model.
+- The schema will not include the Pydantic class name as a title, and the description will appear at the function level, not inside parameters.
+
+
+```bash
+{'tool_schema': {'type': 'function',
+  'function': {'name': 'multiply_tool',
+   'description': 'Multiply two numbers',
+   'parameters': {'properties': {'a': {'description': 'First operand',
+      'title': 'A',
+      'type': 'integer'},
+     'b': {'description': 'Second operand', 'title': 'B', 'type': 'integer'}},
+    'required': ['a', 'b'],
+    'type': 'object'}}},
+ 'return_type': 'content'}
+```
+
+
+## Mix and Match
+
+You can mix normal and decorated functions in your agent's toolset. Thinagents will handle both seamlessly.
+
+```py
+from thinagents import Agent, tool
+
+@tool(name="multiply")
+def multiply(a: int, b: int) -> int:
+    return a * b
+
+def greet(name: str) -> str:
+    return f"Hello, {name}!"
+
+agent = Agent(
+    name="Utility Agent",
+    model="openai/gpt-4o-mini",
+    tools=[multiply, greet],
+)
+```
+
+## Tool Parameters
+
+<TypeTable
+  type={{
+    pydantic_schema: {
+      type: 'BaseModel',
+      description: 'A Pydantic model class to define the tool schema.',
+      default: "None",
+      required: false,
+},
+    return_type: {
+      type: 'content | content_and_artifact',
+      description: 'How Thinagents should route the tool output. "content" sends the return value to the LLM; "content_and_artifact" expects a tuple (content, artifact), sending only content to the LLM and making artifact available for downstream use.',
+      default: 'content',
+      required: false,
+    },
+    name: {
+      type: 'str',
+      description: 'The name of the tool. If not provided, the function name will be used.',
+      default: 'None',
+      required: false,
+    },
+  }}
+/> 

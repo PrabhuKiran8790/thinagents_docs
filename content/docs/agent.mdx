@@ -1,0 +1,121 @@
+---
+title: Agent
+description: Agents in Thinagents
+icon: Bot
+---
+
+import { TypeTable } from 'fumadocs-ui/components/type-table';
+
+Agents are the core orchestrators in Thinagents. An Agent manages interactions with language models (LLMs), executes tools, and can even delegate tasks to sub-agents. Agents are highly configurable and can be extended with custom tools, memory, and more.
+
+## Usage
+
+Create an Agent with just a few lines of code:
+
+```py
+from thinagents import Agent
+
+agent = Agent(
+    name="Greeting Agent",
+    model="openai/gpt-4o-mini",
+)
+
+response = agent.run("Hello, how are you?")
+print(response.content)
+```
+
+Add tools to your Agent for more advanced capabilities:
+
+```py
+from thinagents import Agent
+
+def get_weather(city: str) -> str:
+    return f"The weather in {city} is sunny."
+
+agent = Agent(
+    name="Weather Agent",
+    model="openai/gpt-4o-mini",
+    tools=[get_weather],
+)
+
+response = agent.run("What is the weather in Tokyo?")
+print(response.content)
+```
+
+## Agent Parameters
+
+<TypeTable
+  type={{
+    kwargs: {
+      type: 'dict',
+      description: 'Extra arguments passed to the LLM completion (litellm specific)',
+    },
+    memory: {
+      type: 'BaseMemory',
+      description: 'Memory backend for conversation history.',
+      default: 'None',
+    },
+    tool_timeout: {
+      type: 'number',
+      description: 'Timeout (seconds) for tool execution.',
+      default: '30.0',
+    },
+    description: {
+      type: 'str',
+      description: 'Description of the agent.',
+      default: 'None',
+    },
+    enable_schema_validation: {
+      type: 'bool',
+      description: 'Enable schema validation for output.',
+      default: 'true',
+    },
+    response_format: {
+      type: 'BaseModel',
+      description: 'Pydantic model for structured output.',
+      default: 'None',
+    },
+    concurrent_tool_execution: {
+      type: 'bool',
+      description: 'Run multiple tools concurrently.',
+      default: 'true',
+    },
+    max_steps: {
+      type: 'int',
+      description: 'Max steps per run.',
+      default: '15',
+    },
+    instructions: {
+      type: 'list[str]',
+      description: 'Extra instructions for the agent.',
+      default: '[]',
+    },
+    prompt: {
+      type: 'str | PromptConfig',
+      description: 'System prompt or prompt config.',
+      default: 'None',
+    },
+    sub_agents: {
+      type: 'list[Agent]',
+      description: 'List of sub-agents (as tools).',
+      default: 'None',
+    },
+    tools: {
+      type: 'list[ThinAgentsTool] | list[Callable]',
+      description: 'List of tools (functions or ThinAgentsTool).',
+      default: 'None',
+    },
+    model: {
+      type: 'str',
+      description: 'The LLM model identifier (e.g., "gpt-4o-mini").',
+      required: true,
+    },
+    name: {
+      type: 'str',
+      description: 'The name of the agent.',
+      required: true,
+    },
+  }}
+/>
+
+> **Note:** Most users only need to specify `name` and `model` to get started. Add tools, memory, and other options as needed for advanced use cases.

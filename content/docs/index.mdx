@@ -1,0 +1,37 @@
+---
+title: Intro
+description: Introduction to Thinagents
+icon: Play
+---
+
+Welcome to **Thinagents** — a modern, lightweight framework for building AI agents with ease and flexibility.
+
+> **Thinagents** is inspired by [Agno AGI](https://www.agno.com) and powered by [litellm](https://www.litellm.ai), giving you access to 100+ LLM APIs and providers. Whether you're prototyping, building production agents, or experimenting with new models, Thinagents helps you move fast with minimal overhead.
+
+- Model & provider agnostic (thanks to [litellm](https://www.litellm.ai))
+- Inspired by [Agno AGI](https://www.agno.com)
+- Small, flexible, and easy to integrate
+- Open source — [View on GitHub](https://github.com/PrabhuKiran8790/thinagents)
+
+## Quick Example
+
+Create an agent and add a custom tool in just a few lines:
+
+```py title="example.py"
+import os
+from thinagents import Agent
+
+os.environ["OPENAI_API_KEY"] = "your-api-key"
+
+def add(a: int, b: int) -> int:
+    return a + b
+
+agent = Agent(
+    name="Math Agent",
+    model="openai/gpt-4o-mini",
+    tools=[add],
+)
+
+response = agent.run("What is 2 + 3? Use the add tool.")
+print(response.content)
+```
