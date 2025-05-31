@@ -9,6 +9,7 @@
         "get-started",
         "---Core Concepts---",
         "agent",
-        "tools"
+        "tools",
+        "sub-agents"
     ]
 }
