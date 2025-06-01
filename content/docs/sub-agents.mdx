@@ -15,7 +15,6 @@ A sub-agent is an agent that is managed by another agent (the parent agent). The
 
 - **Modularity:** Break down complex tasks into smaller, manageable components.
 - **Specialization:** Assign specific responsibilities to different agents (e.g., math, weather, search).
-- **Parallelism:** Enable parallel tool calls and sub-agent execution for faster responses.
 - **Reusability:** Reuse sub-agents across different parent agents or workflows.
 
 ## Example: Math and Weather Agents
@@ -82,7 +81,6 @@ w_agent = Agent(
     model="openai/gpt-4o-mini",
     description="Weather Agent -- Used to fetch weather data for a given city",
     tools=[fetch_weather],
-    instructions=["Summarise the weather in a funny way"],
 )
 
 add_subtract_weather_Agent = Agent(
@@ -90,7 +88,6 @@ add_subtract_weather_Agent = Agent(
     model="openai/gpt-4o-mini",
     description="Math Agent for addition/subtraction with weather sub-agent",
     sub_agents=[w_agent],
-    parallel_tool_calls=True,
     tools=[add, subtract],
 )
 ```
@@ -103,7 +100,6 @@ agent = Agent(
     model="openai/gpt-4o-mini",
     tools=[multiply, divide],
     sub_agents=[add_subtract_weather_Agent],
-    parallel_tool_calls=True,
     response_format=Output,
 )
 ```
@@ -138,7 +134,7 @@ The current weather in Hyderabad, India is as follows:
 
 ## Visualizing Agent Hierarchies
 
-The `thinagents` library also provides utilities to visualize agent and sub-agent relationships, making it easier to debug and design complex agent systems.
+The `thinagents` library also provides utilities to visualize agent and sub-agent relationships.
 
 ```python
 from thinagents.utils.visualize import visualize_agent_flow
