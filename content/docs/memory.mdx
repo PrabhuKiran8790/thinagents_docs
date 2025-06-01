@@ -1,0 +1,86 @@
+---
+title: Memory
+description: Persist and reuse conversation history in Thinagents
+icon: Database
+---
+
+LLMs work best when they remember what has already been said. Thinagents ships with pluggable memory back-ends so you can choose between fast in-process storage, file-based persistence, or full SQL durability.
+
+## Available Memory Stores
+
+| Class | Persists After Restart? | Constructor |
+|-------|-------------------------|-------------|
+| `InMemoryStore` | ❌ (volatile) | `InMemoryStore()` |
+| `FileMemory` | ✔️ (files on disk) | `FileMemory(storage_dir="./agent_mem")` |
+| `SQLiteMemory` | ✔️ (single `.db` file) | `SQLiteMemory(db_path="./agent_mem.db")` |
+
+## Quick Start (In-Memory)
+
+```py
+from thinagents import Agent
+from thinagents.memory import InMemoryStore
+
+agent = Agent(
+    name="Memory Demo",
+    model="openai/gpt-4o-mini",
+    memory=InMemoryStore(),  # volatile, but ultra-fast
+)
+```
+
+### A Short Conversation
+
+```py
+conv_id = "demo-1"
+
+print(await agent.arun("Hi, I'm Alice!", conversation_id=conv_id))
+# → "Hello Alice, nice to meet you."
+
+print(await agent.arun("What is my name?", conversation_id=conv_id))
+# → "Your name is Alice."
+```
+
+<Callout title="Remember: pass `conversation_id`">
+Every call that should share memory **must** use the same `conversation_id`. This key links the messages across requests.
+</Callout>
+
+## Switching to Persistent Stores
+
+Need resilience across restarts? Swap the store—no other changes.
+
+```py
+from thinagents.memory import FileMemory, SQLiteMemory
+
+file_agent = Agent(
+    name="File Mem Agent",
+    model="openai/gpt-4o-mini",
+    memory=FileMemory(storage_dir="./agent_mem"),
+)
+
+db_agent = Agent(
+    name="SQLite Mem Agent",
+    model="openai/gpt-4o-mini",
+    memory=SQLiteMemory(db_path="./agent_mem.db"),
+)
+```
+
+Because the memory layer is pluggable, you can even implement your own store (Redis, DynamoDB, etc.) by subclassing `BaseMemory`.
+
+## Tips
+
+1. Choose `InMemoryStore` for unit tests or short-lived processes.
+2. Prefer `FileMemory` or `SQLiteMemory` when you need persistence but want a zero-dependency setup.
+3. Clear memory per user or conversation by simply changing `conversation_id`.
+
+## Storing Tool Artifacts in Memory
+
+One advantage of `InMemoryStore` is that it can also store tool artifacts (such as files, datasets, or other outputs from tools) in memory. To enable this, pass `store_tool_artifacts=True`:
+
+```py
+agent = Agent(
+    name="Memory Demo",
+    model="openai/gpt-4o-mini",
+    memory=InMemoryStore(store_tool_artifacts=True),
+)
+```
+
+Now, any artifacts returned by tools will be kept in memory and available for later steps in the same conversation. 

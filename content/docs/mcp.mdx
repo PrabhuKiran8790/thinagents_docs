@@ -1,0 +1,67 @@
+---
+title: Integrating MCP
+description: Plug-and-play context with the Model Context Protocol
+icon: Plug
+---
+
+Large-language-model agents can only be as helpful as the context they can see. The **Model Context Protocol (MCP)** is an open specification that acts like a universal "USB-C port" for AI—standardising how agents connect to files, APIs and tools. Read the full overview in the [MCP introduction](https://modelcontextprotocol.io/introduction).
+
+## Why MCP?
+
+MCP helps you build agents and complex workflows on top of LLMs. LLMs frequently need to integrate with data and tools, and MCP provides:
+
+- A growing list of pre-built integrations that your LLM can directly plug into
+- The flexibility to switch between LLM providers and vendors
+- Best practices for securing your data within your infrastructure
+
+## ThinAgents + MCP
+
+```py
+from thinagents import Agent
+
+agent = Agent(
+    name="MCP Agent",
+    model="openai/gpt-4o-mini",
+    mcp_servers=[
+        {  # Remote services over SSE
+            "transport": "sse",
+            "url": "http://localhost:8100/sse",
+        },
+        {  # Local filesystem access over stdio
+            "transport": "stdio",
+            "command": "npx",
+            "args": [
+                "-y",
+                "@modelcontextprotocol/server-filesystem",
+                "/Users/prabhukirankonda/Documents/projects/mcp_test_2_weather",
+            ],
+        },
+    ],
+)
+```
+
+### Run It Asynchronously
+
+```py
+async for chunk in agent.astream(
+    "what is the weather in seattle and list the files in the directory that you have access to",
+):
+    print(chunk.content, end="", flush=True)
+
+# Or get the full response at once (non-streaming but still async)
+response = await agent.arun(
+    "what is the weather in seattle and list the files in the directory that you have access to",
+)
+print(response.content)
+```
+
+<Callout title="Async by Design">
+Agents that use MCP must be invoked with asynchronous APIs. Stream chunks with `async for` over `agent.astream(...)` **or** await a single buffered reply via `await agent.arun(...)`.
+</Callout>
+
+## Supported Transports in ThinAgents
+
+| Transport | Best For | How to Configure |
+|-----------|----------|------------------|
+| **SSE**   | HTTP servers that push events (public APIs, remote micro-services) | `{ "transport": "sse", "url": "…" }` |
+| **stdio** | Local binaries or Node packages you want to spawn (filesystem, CLI tools) | `{ "transport": "stdio", "command": "…", "args": [ … ] }` |
