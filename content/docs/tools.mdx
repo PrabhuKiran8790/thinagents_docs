@@ -156,6 +156,84 @@ agent = Agent(
 )
 ```
 
+## LangChain Tool Example: Tavily Search
+
+You can use LangChain tools directly in Thinagents via the `LangchainTool` adapter. Here's how to use the Tavily web search tool:
+
+```py
+from thinagents import Agent
+from thinagents.tools import LangchainTool
+from langchain_tavily import TavilySearch
+
+agent = Agent(
+    name="Web Search Agent",
+    model="gemini/gemini-2.0-flash",
+    tools=[LangchainTool(TavilySearch(max_results=5))],
+    prompt="You are a web search assistant. Use Tavily to answer questions with up-to-date information."
+)
+
+print(agent.run("India Vs England 2nd Test 2025 results").content)
+```
+
+---
+
+## Agno Tool Example: YFinance
+
+You can use [**Agno**](https://www.agno.com) toolkits in Thinagents via the `AgnoTool` adapter. Here's how to use the YFinance toolkit for financial data:
+
+```py
+from thinagents import Agent
+from thinagents.tools import AgnoTool
+from agno.tools.yfinance import YFinanceTools
+
+agent = Agent(
+    name="Finance Agent",
+    model="gemini/gemini-2.0-flash",
+    tools=[*AgnoTool(YFinanceTools(enable_all=True)).get_tools()],
+    prompt="You are a finance assistant. Use YFinance tools to answer stock and finance questions."
+)
+
+print(agent.run("Current stock price for Microsoft").content)
+```
+
+---
+
+## Combo Example: Datetime, LangChain (Tavily), and Agno (YFinance)
+
+You can combine your own Python tools, LangChain tools, and Agno toolkits in a single agent for maximum versatility:
+
+```py
+from thinagents import Agent
+from thinagents.tools import LangchainTool, AgnoTool
+from langchain_tavily import TavilySearch
+from agno.tools.yfinance import YFinanceTools
+import datetime
+
+def get_current_datetime() -> str:
+    return datetime.datetime.now().isoformat()
+
+tools = [
+    get_current_datetime,  # Custom Python function
+    LangchainTool(TavilySearch(max_results=5)),  # LangChain web search tool
+    *AgnoTool(YFinanceTools(enable_all=True)).get_tools()  # Agno finance tools
+]
+
+agent = Agent(
+    name="Universal Assistant",
+    model="gemini/gemini-2.0-flash",
+    tools=tools,
+    prompt="You are a universal assistant with tools for datetime, web search, and finance."
+)
+
+print(agent.run("What is the current server time?").content)
+print(agent.run("India Vs England 2nd Test 2025 results").content)
+print(agent.run("Current stock price for Microsoft").content)
+```
+
+<Callout title="Tip">
+You can mix and match any number of LangChain, Agno, or regular Python tools in your agent's toolset.
+</Callout>
+
 ## Tool Parameters
 
 <TypeTable

@@ -1,0 +1,389 @@
+---
+title: Prompting
+description: Advanced prompting with PromptConfig in Thinagents
+icon: MessageSquare
+---
+
+import { TypeTable } from 'fumadocs-ui/components/type-table';
+
+# Advanced Prompting with PromptConfig
+
+Thinagents provides a powerful `PromptConfig` class that allows you to build structured, dynamic prompts with ease. This system enables you to create complex prompts with instructions, context, custom sections, and template variable substitution.
+
+## What is PromptConfig?
+
+`PromptConfig` is a prompt constructor that allows you to build structured prompts by combining a base prompt with optional instructions, context, and custom sections. The order of these elements in the final prompt is determined by the order in which they are added.
+
+## Basic Usage
+
+Start with a simple base prompt:
+
+```py
+from thinagents import Agent
+from thinagents.utils.prompts import PromptConfig
+
+prompt = PromptConfig("You are a helpful AI assistant.")
+
+agent = Agent(
+    name="Helper Agent",
+    model="openai/gpt-4o-mini",
+    prompt=prompt,
+)
+
+response = agent.run("How can I help you today?")
+print(response.content)
+```
+
+## Adding Instructions
+
+Use `with_instructions()` to set a list of instructions, or `add_instruction()` to add one at a time:
+
+```py
+prompt = PromptConfig("You are a helpful AI assistant.")
+
+# Set multiple instructions at once
+prompt.with_instructions([
+    "Always be polite and respectful",
+    "Provide accurate information",
+    "Ask for clarification when needed"
+])
+
+# Or add instructions one by one
+prompt.add_instruction("Be concise in your responses")
+prompt.add_instruction("Use examples when helpful")
+
+agent = Agent(
+    name="Assistant",
+    model="openai/gpt-4o-mini",
+    prompt=prompt,
+)
+
+response = agent.run("Tell me about Python.")
+print(response.content)
+```
+
+## Adding Context
+
+Use `with_context()` to provide background information:
+
+```py
+prompt = PromptConfig("You are a helpful AI assistant.")
+prompt.with_context("The user is learning programming and needs beginner-friendly explanations.")
+
+agent = Agent(
+    name="Programming Helper",
+    model="openai/gpt-4o-mini",
+    prompt=prompt,
+)
+
+response = agent.run("What is a variable?")
+print(response.content)
+```
+
+## Adding Custom Sections
+
+Use `add_section()` to add individual sections, or `with_sections()` to set multiple sections:
+
+```py
+prompt = PromptConfig("You are a helpful AI assistant.")
+
+# Add a single section
+prompt.add_section("Response Format", "Always provide clear, numbered steps")
+
+# Add multiple sections at once
+prompt.with_sections([
+    ("User Level", "Beginner programmer"),
+    ("Preferred Style", ["Use simple language", "Include code examples", "Explain each step"])
+])
+
+agent = Agent(
+    name="Tutorial Assistant",
+    model="openai/gpt-4o-mini",
+    prompt=prompt,
+)
+
+response = agent.run("How do I create a list in Python?")
+print(response.content)
+```
+
+## Template Variables
+
+Use `{variable}` syntax in your prompts and substitute values when building:
+
+```py
+prompt = PromptConfig("You are a {role} assistant helping with {topic}.")
+
+# Build the prompt with specific variables
+final_prompt = prompt.build(role="math", topic="algebra")
+print(final_prompt)
+# Output: "You are a math assistant helping with algebra."
+```
+
+### Using Variables with Agents
+
+Pass variables when running your agent using `prompt_vars`:
+
+```py
+prompt = PromptConfig("You are a {subject} tutor for {level} students.")
+prompt.add_instruction("Explain concepts in {difficulty} terms")
+
+agent = Agent(
+    name="Tutor",
+    model="openai/gpt-4o-mini",
+    prompt=prompt,
+)
+
+response = agent.run(
+    "Explain photosynthesis",
+    prompt_vars={
+        "subject": "biology",
+        "level": "high school", 
+        "difficulty": "simple"
+    }
+)
+print(response.content)
+```
+
+## Variables in Instructions and Sections
+
+Template variables work in all parts of your prompt:
+
+```py
+prompt = PromptConfig("You are a {role} assistant.")
+
+prompt.with_instructions([
+    "Focus on {subject} topics",
+    "Use {communication_style} language",
+    "Provide {detail_level} explanations"
+])
+
+prompt.with_context("User is a {user_type} with {experience_level} experience.")
+
+prompt.add_section("Guidelines", "Follow {company} standards and policies")
+
+agent = Agent(
+    name="Assistant",
+    model="openai/gpt-4o-mini",
+    prompt=prompt,
+)
+
+response = agent.run(
+    "Tell me about best practices",
+    prompt_vars={
+        "role": "technical",
+        "subject": "software development",
+        "communication_style": "professional",
+        "detail_level": "detailed",
+        "user_type": "developer",
+        "experience_level": "intermediate",
+        "company": "TechCorp"
+    }
+)
+print(response.content)
+```
+
+## Schema Validation
+
+Use Pydantic models to validate your template variables:
+
+```py
+from pydantic import BaseModel, Field
+from thinagents.utils.prompts import PromptConfig
+
+class PromptVars(BaseModel):
+    user_name: str = Field(description="User's name")
+    skill_level: str = Field(description="User's skill level")
+    topic: str = Field(description="Topic to discuss")
+
+prompt = PromptConfig(
+    "Hello {user_name}! I'm here to help you learn {topic} at a {skill_level} level.",
+    vars_schema=PromptVars
+)
+
+agent = Agent(
+    name="Learning Assistant",
+    model="openai/gpt-4o-mini",
+    prompt=prompt,
+)
+
+# This will validate the variables against the schema
+response = agent.run(
+    "Let's get started!",
+    prompt_vars={
+        "user_name": "Alice",
+        "skill_level": "beginner",
+        "topic": "Python programming"
+    }
+)
+print(response.content)
+```
+
+## Method Chaining
+
+All PromptConfig methods return the instance, so you can chain them:
+
+```py
+prompt = (PromptConfig("You are a helpful assistant.")
+    .with_instructions(["Be helpful", "Be accurate"])
+    .with_context("User needs quick answers")
+    .add_section("Style", "Keep responses brief")
+    .add_instruction("Use bullet points when listing items")
+)
+
+agent = Agent(
+    name="Quick Helper",
+    model="openai/gpt-4o-mini",
+    prompt=prompt,
+)
+
+response = agent.run("List the benefits of exercise")
+print(response.content)
+```
+
+## Error Handling
+
+PromptConfig validates that all required template variables are provided:
+
+```py
+prompt = PromptConfig("Hello {name}, welcome to {service}!")
+
+try:
+    final_prompt = prompt.build(name="Alice")  # Missing 'service' variable
+except PromptingError as e:
+    print(f"Error: {e}")
+    # Output: Missing required prompt variables: ['service']
+
+# Correct usage
+final_prompt = prompt.build(name="Alice", service="our platform")
+print(final_prompt)
+# Output: "Hello Alice, welcome to our platform!"
+```
+
+## Building Prompts Without Agents
+
+You can also build and inspect prompts directly:
+
+```py
+prompt = PromptConfig("You are a {role} expert.")
+prompt.with_instructions(["Be thorough", "Provide examples"])
+prompt.with_context("User is asking about {topic}")
+prompt.add_section("Format", "Use numbered lists for steps")
+
+# Build the complete prompt
+final_prompt = prompt.build(role="cooking", topic="baking techniques")
+print(final_prompt)
+
+# Output:
+# You are a cooking expert.
+# 
+# Instructions:
+# - Be thorough
+# - Provide examples
+# 
+# Context:
+# User is asking about baking techniques
+# 
+# Format:
+# Use numbered lists for steps
+```
+
+## Reusing Prompt Templates
+
+Create reusable prompt templates for different scenarios:
+
+```py
+# Create a base template
+base_template = (PromptConfig("You are a {field} expert.")
+    .with_instructions(["Provide accurate information", "Use clear examples"])
+    .with_context("User needs help with {task}")
+)
+
+# Use the same template for different fields
+science_agent = Agent(
+    name="Science Expert",
+    model="openai/gpt-4o-mini",
+    prompt=base_template,
+)
+
+history_agent = Agent(
+    name="History Expert", 
+    model="openai/gpt-4o-mini",
+    prompt=base_template,
+)
+
+# Use with different variables
+science_response = science_agent.run(
+    "Explain gravity",
+    prompt_vars={"field": "physics", "task": "understanding gravity"}
+)
+
+history_response = history_agent.run(
+    "Tell me about the Renaissance",
+    prompt_vars={"field": "history", "task": "learning about historical periods"}
+)
+```
+
+## PromptConfig Parameters
+
+<TypeTable
+  type={{
+    base_prompt: {
+      type: 'str',
+      description: 'The foundational text of the prompt.',
+      required: true,
+    },
+    vars_schema: {
+      type: 'Type[BaseModel]',
+      description: 'Optional Pydantic BaseModel class to validate variables passed to build().',
+      default: 'None',
+      required: false,
+    },
+  }}
+/>
+
+## Available Methods
+
+<TypeTable
+  type={{
+    with_instructions: {
+      type: 'List[str]',
+      description: 'Sets the instructions for the prompt. Replaces any existing instructions.',
+      returns: 'PromptConfig',
+    },
+    add_instruction: {
+      type: 'str',
+      description: 'Adds a single instruction to the list of instructions.',
+      returns: 'PromptConfig',
+    },
+    with_context: {
+      type: 'str',
+      description: 'Sets the context for the prompt. Replaces any existing context.',
+      returns: 'PromptConfig',
+    },
+    with_sections: {
+      type: 'List[SectionType]',
+      description: 'Sets custom sections for the prompt. Replaces any existing custom sections.',
+      returns: 'PromptConfig',
+    },
+    add_section: {
+      type: 'heading: str, content: Union[str, List[str]], extra_text: Optional[str]',
+      description: 'Adds a single custom section to the list of sections.',
+      returns: 'PromptConfig',
+    },
+    build: {
+      type: '**kwargs',
+      description: 'Constructs the final prompt string with template substitution.',
+      returns: 'str',
+    },
+  }}
+/>
+
+## Best Practices
+
+1. **Start with a clear base prompt** - Make your intent obvious
+2. **Use descriptive variable names** - `{user_name}` is better than `{name}`
+3. **Add instructions for behavior** - Tell the agent how to act
+4. **Add context for background** - Provide relevant information
+5. **Use sections for organization** - Structure complex information clearly
+6. **Validate with schemas** - Use Pydantic for complex variable requirements
+7. **Test your variables** - Make sure all template variables get substituted properly 
