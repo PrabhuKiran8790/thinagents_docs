@@ -1,0 +1,342 @@
+---
+title: Toolkits
+description: Organizing Tools with Toolkits in Thinagents
+icon: Boxes
+---
+
+import { TypeTable } from 'fumadocs-ui/components/type-table';
+
+# Organize Your Tools with Toolkits
+
+**Toolkits** are a powerful way to organize related tools into logical groups while unlocking advanced patterns like dependency injection. Instead of defining individual tools, you can create a Python class where every public method automatically becomes an agent tool.
+
+## What Are Toolkits?
+
+A **Toolkit** is any Python class that inherits from `Toolkit`. Thinagents automatically converts all public methods (those not starting with `_`) into tools that your agent can use. This gives you clean organization, shared state, and dependency injection out of the box.
+
+```py
+from thinagents import Agent, Toolkit
+
+class MathToolkit(Toolkit):
+    def add(self, a: float, b: float) -> float:
+        """Add two numbers together."""
+        return a + b
+    
+    def multiply(self, a: float, b: float) -> float:
+        """Multiply two numbers."""
+        return a * b
+
+agent = Agent(
+    name="Math Assistant", 
+    model="openai/gpt-4o-mini", 
+    tools=[MathToolkit()]
+)
+
+response = agent.run("Calculate 15 + 27, then multiply by 3")
+print(response.content)  # AI uses add and multiply tools automatically
+```
+
+## Why Toolkits Are Game-Changing
+
+### 🎯 **Zero Boilerplate**
+- No need to decorate every method with `@tool`
+- Any existing Python class instantly becomes a toolkit
+- All public methods automatically become tools
+
+### 🗂️ **Natural Organization** 
+- Group related functionality together (database ops, file handling, API calls)
+- Clean separation of concerns
+- Easier to maintain and scale
+
+### 💉 **Dependency Injection**
+- Share database connections, API clients, configurations across all tools
+- Initialize once in the constructor, use everywhere
+- Perfect for enterprise applications
+
+### 🏷️ **Smart Naming**
+- Automatic tool prefixing to avoid naming conflicts
+- Configurable include/exclude for fine-grained control
+
+## Basic Toolkit with Dependency Injection
+
+Here's a more realistic example showing how toolkits excel at dependency injection:
+
+```py
+from thinagents import Agent, Toolkit
+
+class DatabaseToolkit(Toolkit):
+    tool_prefix = "db"  # Tools become: db_query, db_insert, db_get_schema
+    
+    def __init__(self, connection_string: str):
+        self.connection = connection_string  # Shared across all tools
+        super().__init__()
+    
+    def query(self, sql: str) -> str:
+        """Execute a SELECT query and return results."""
+        # Your database query logic here using self.connection
+        return f"Query results for: {sql}"
+    
+    def insert(self, table: str, data: dict) -> str:
+        """Insert data into specified table."""
+        # Your insert logic here using self.connection
+        return f"Inserted into {table}: {data}"
+    
+    def get_schema(self, table: str) -> str:
+        """Get table schema information."""
+        # Your schema retrieval logic here using self.connection
+        return f"Schema for {table}"
+
+# One shared database connection for all tools
+agent = Agent(
+    name="DB Assistant",
+    model="openai/gpt-4o-mini",
+    tools=[DatabaseToolkit("postgresql://localhost/mydb")]
+)
+
+response = agent.run("Show me users table schema, then find all active users")
+```
+
+## Configuration Options
+
+### Tool Prefixing
+
+Use `tool_prefix` to automatically prefix all tool names and avoid conflicts:
+
+```py
+class FileToolkit(Toolkit):
+    tool_prefix = "file"  # Methods become: file_read, file_write, file_delete
+    
+    def read(self, path: str) -> str:
+        # Your file reading logic
+        return f"Content of {path}"
+    
+    def write(self, path: str, content: str) -> str:
+        # Your file writing logic  
+        return f"Wrote to {path}"
+
+agent = Agent(
+    name="File Agent",
+    model="openai/gpt-4o-mini",
+    tools=[FileToolkit()]
+)
+```
+
+### Include/Exclude Control
+
+Use `include` for whitelist approach (only specific methods become tools):
+
+```py
+class StringToolkit(Toolkit):
+    include = ["upper", "reverse"]  # ONLY these become tools
+    
+    def upper(self, text: str) -> str:
+        return text.upper()
+    
+    def reverse(self, text: str) -> str:
+        return text[::-1]
+    
+    def lower(self, text: str) -> str:
+        return text.lower()  # This won't become a tool
+
+agent = Agent(
+    name="String Agent",
+    model="openai/gpt-4o-mini",
+    tools=[StringToolkit()]
+)
+```
+
+Use `exclude` for blacklist approach (most methods become tools except excluded ones):
+
+```py
+class APIToolkit(Toolkit):
+    exclude = ["_authenticate", "validate"]  # Exclude these from becoming tools
+    
+    def get_user(self, user_id: str) -> dict:
+        # This becomes a tool
+        return {"user_id": user_id}
+    
+    def validate(self, data: dict) -> bool:
+        # This won't become a tool (excluded)
+        return True
+    
+    def _authenticate(self) -> str:
+        # This won't become a tool (private method)
+        return "token"
+
+agent = Agent(
+    name="API Agent",
+    model="openai/gpt-4o-mini",
+    tools=[APIToolkit()]
+)
+```
+
+<Callout title="Important">
+- Use either `include` OR `exclude`, not both
+- Private methods (starting with `_`) are automatically excluded
+- `include` acts as a whitelist - only specified methods become tools
+- `exclude` acts as a blacklist - all public methods except excluded ones become tools
+</Callout>
+
+## Advanced: Return Types in Toolkits
+
+Toolkit methods support the same return types as regular tools:
+
+```py
+from thinagents import Agent, Toolkit, tool
+
+class DataToolkit(Toolkit):
+    def quick_summary(self, query: str) -> str:
+        """Simple tool that returns content directly to LLM."""
+        return f"Quick summary for: {query}"
+    
+    @tool(return_type="content_and_artifact")
+    def detailed_analysis(self, query: str) -> tuple[str, dict]:
+        """Tool that returns both content for LLM and artifact for downstream use."""
+        large_dataset = {"rows": list(range(10000)), "query": query}
+        summary = f"Analysis complete for {query}. Found {len(large_dataset['rows'])} records."
+        return summary, large_dataset
+
+agent = Agent(
+    name="Data Agent", 
+    model="openai/gpt-4o-mini", 
+    tools=[DataToolkit()]
+)
+
+response = agent.run("Analyze sales data")
+print(response.content)      # Summary sent to LLM
+print(response.artifact)     # Full dataset available for your app
+```
+
+## Mix Toolkits with Regular Tools
+
+You can combine toolkits with regular tools, LangChain tools, and Agno tools:
+
+```py
+from thinagents import Agent, Toolkit, tool
+from thinagents.tools import LangchainTool
+from langchain_tavily import TavilySearch
+import datetime
+
+class UtilityToolkit(Toolkit):
+    tool_prefix = "util"
+    
+    def calculate(self, expression: str) -> str:
+        """Safely evaluate math expressions."""
+        # Your calculation logic here
+        return f"Result: {expression}"
+    
+    def format_date(self, date_str: str) -> str:
+        """Format date strings."""
+        # Your date formatting logic here
+        return f"Formatted: {date_str}"
+
+@tool
+def get_current_time() -> str:
+    """Get current timestamp."""
+    return datetime.datetime.now().isoformat()
+
+tools = [
+    UtilityToolkit(),  # All methods become util_calculate, util_format_date
+    get_current_time,  # Regular decorated tool
+    LangchainTool(TavilySearch(max_results=5)),  # LangChain tool
+]
+
+agent = Agent(
+    name="Multi-Tool Agent",
+    model="openai/gpt-4o-mini", 
+    tools=tools
+)
+```
+
+## Real-World Examples
+
+### Cloud Services Toolkit
+```py
+import boto3
+from thinagents import Agent, Toolkit
+
+class AWSToolkit(Toolkit):
+    tool_prefix = "aws"
+    
+    def __init__(self, access_key: str, secret_key: str, region: str):
+        self.client = boto3.client('s3', 
+            aws_access_key_id=access_key,
+            aws_secret_access_key=secret_key,
+            region_name=region
+        )
+        super().__init__()
+    
+    def list_buckets(self) -> str:
+        # Use self.client for all S3 operations
+        buckets = self.client.list_buckets()
+        return f"Found {len(buckets['Buckets'])} buckets"
+    
+    def upload_file(self, bucket: str, key: str, file_path: str) -> str:
+        # Shared client configuration
+        self.client.upload_file(file_path, bucket, key)
+        return f"Uploaded {file_path} to {bucket}/{key}"
+
+agent = Agent(
+    name="AWS Agent",
+    model="openai/gpt-4o-mini",
+    tools=[AWSToolkit("key", "secret", "us-east-1")]
+)
+```
+
+### Monitoring Toolkit
+```py
+from thinagents import Agent, Toolkit
+import psutil
+
+class MonitoringToolkit(Toolkit):
+    exclude = ["_parse_config", "_validate_thresholds"]
+    
+    def __init__(self, config_file: str):
+        self.config = self._parse_config(config_file)
+        super().__init__()
+    
+    def check_cpu(self) -> str:
+        # Monitoring logic using shared config
+        cpu_percent = psutil.cpu_percent(interval=1)
+        return f"CPU usage: {cpu_percent}%"
+    
+    def check_memory(self) -> str:
+        # Monitoring logic using shared config  
+        memory = psutil.virtual_memory()
+        return f"Memory usage: {memory.percent}%"
+    
+    def _parse_config(self, file: str) -> dict:
+        # Helper method - won't become a tool
+        return {"thresholds": {"cpu": 80, "memory": 85}}
+
+agent = Agent(
+    name="Monitor Agent",
+    model="openai/gpt-4o-mini",
+    tools=[MonitoringToolkit("config.json")]
+)
+```
+
+## Toolkit Configuration
+
+<TypeTable
+  type={{
+    tool_prefix: {
+      type: 'str',
+      description: 'Optional prefix to add to all tool names. If specified, all methods will be prefixed (e.g., "calc_add", "calc_multiply").',
+      default: "None",
+      required: false,
+    },
+    include: {
+      type: 'List[str] | Set[str]',
+      description: 'Optional list or set of method names to include as tools (whitelist). If specified, ONLY these methods become tools. Cannot be used with exclude.',
+      default: 'None',
+      required: false,
+    },
+    exclude: {
+      type: 'List[str] | Set[str]',
+      description: 'Optional list or set of method names to exclude from becoming tools (blacklist). Applied to all public methods. Cannot be used with include.',
+      default: 'None',
+      required: false,
+    },
+  }}
+/>

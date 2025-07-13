@@ -177,6 +177,44 @@ print(agent.run("India Vs England 2nd Test 2025 results").content)
 
 ---
 
+## CrewAI Tool Example
+
+You can use [**CrewAI**](https://github.com/joaomdmoura/crewAI) tools directly in Thinagents via the `CrewaiTool` adapter. This allows you to wrap any CrewAI `BaseTool` and use it seamlessly in your agent, just like with LangChain tools.
+
+```py
+from thinagents import Agent
+from thinagents.tools import CrewaiTool
+from crewai_tools import DirectoryReadTool, FileReadTool
+
+# Create CrewAI tool instances
+directory_tool = DirectoryReadTool('./../thinagents/core')
+file_tool = FileReadTool()
+
+# Wrap them with the ThinAgents adapter
+wrapped_directory_tool = CrewaiTool(directory_tool)
+wrapped_file_tool = CrewaiTool(file_tool)
+
+# Use them in a ThinAgents agent
+agent = Agent(
+    name="File System Agent",
+    model="openai/gpt-4o-mini",
+    tools=[wrapped_directory_tool, wrapped_file_tool]
+)
+
+# The agent can now use the CrewAI tools
+response = agent.run("explain about agent.py file in thinagents/core")
+print(response.content)
+```
+
+With `CrewaiTool`, you can:
+- Use any CrewAI tool (sync or async) as a ThinAgents tool
+- Automatically generate the correct parameter schema for the agent
+- Mix CrewAI tools with regular Python, LangChain, and Agno tools in your agent's toolset
+
+<Callout title="Tip">
+You can mix and match any number of CrewAI, LangChain, Agno, or regular Python tools in your agent's toolset.
+</Callout>
+
 ## Agno Tool Example: YFinance
 
 You can use [**Agno**](https://www.agno.com) toolkits in Thinagents via the `AgnoTool` adapter. Here's how to use the YFinance toolkit for financial data:
@@ -198,15 +236,16 @@ print(agent.run("Current stock price for Microsoft").content)
 
 ---
 
-## Combo Example: Datetime, LangChain (Tavily), and Agno (YFinance)
+## Combo Example: Python, LangChain, Agno, and CrewAI Tools
 
-You can combine your own Python tools, LangChain tools, and Agno toolkits in a single agent for maximum versatility:
+You can combine your own Python tools, LangChain tools, Agno toolkits, and CrewAI tools in a single agent for maximum versatility:
 
 ```py
 from thinagents import Agent
-from thinagents.tools import LangchainTool, AgnoTool
+from thinagents.tools import LangchainTool, AgnoTool, CrewaiTool
 from langchain_tavily import TavilySearch
 from agno.tools.yfinance import YFinanceTools
+from crewai_tools import DirectoryReadTool, FileReadTool
 import datetime
 
 def get_current_datetime() -> str:
@@ -215,7 +254,9 @@ def get_current_datetime() -> str:
 tools = [
     get_current_datetime,  # Custom Python function
     LangchainTool(TavilySearch(max_results=5)),  # LangChain web search tool
-    *AgnoTool(YFinanceTools(enable_all=True)).get_tools()  # Agno finance tools
+    *AgnoTool(YFinanceTools(enable_all=True)).get_tools(),  # Agno finance tools
+    CrewaiTool(DirectoryReadTool('./../thinagents/core')),  # CrewAI directory tool
+    CrewaiTool(FileReadTool())  # CrewAI file tool
 ]
 
 agent = Agent(
@@ -228,10 +269,11 @@ agent = Agent(
 print(agent.run("What is the current server time?").content)
 print(agent.run("India Vs England 2nd Test 2025 results").content)
 print(agent.run("Current stock price for Microsoft").content)
+print(agent.run("explain about agent.py file in thinagents/core").content)
 ```
 
 <Callout title="Tip">
-You can mix and match any number of LangChain, Agno, or regular Python tools in your agent's toolset.
+You can mix and match any number of CrewAI, LangChain, Agno, or regular Python tools in your agent's toolset.
 </Callout>
 
 ## Tool Parameters
