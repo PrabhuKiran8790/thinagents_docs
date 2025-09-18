@@ -132,56 +132,59 @@ if __name__ == "__main__":
 </Tab>
 
   <Tab value="HTTP Server">
-  ```py
-# examples/mcp_server_http_github.py
+```py
 import os
 import requests
 from fastmcp import FastMCP, Context
 
+
 mcp = FastMCP("GitHub HTTP Server", streamable_http_path='/')
 
 def get_bearer_token(ctx: Context) -> str:
-"""Extract bearer token from Authorization header."""
-request = ctx.get_http_request()
-headers = request.headers
-authorization_header = headers.get('Authorization')
-
+    """Extract bearer token from Authorization header."""
+    request = ctx.get_http_request()
+    headers = request.headers
+    authorization_header = headers.get('Authorization')
+    
     if not authorization_header:
         raise ValueError("Authorization header missing")
-
+    
     parts = authorization_header.split()
     if len(parts) != 2 or parts[0] != 'Bearer':
         raise ValueError("Invalid Authorization header format")
-
+    
     return parts[1]
 
-def \_github_headers(token: str) -> dict:
-headers = {"Accept": "application/vnd.github+json"}
-if token:
-headers["Authorization"] = f"Bearer {token}"
-return headers
+
+def _github_headers(token: str) -> dict:
+    headers = {"Accept": "application/vnd.github+json"}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    return headers
+
 
 @mcp.tool()
 def list_repos(user: str, ctx: Context) -> list[str]:
-"""List public repositories for a GitHub user/org. Requires Authorization: Bearer <github_token> header."""
-try:
-token = get_bearer_token(ctx)
-except ValueError as e:
-return [f"Authorization error: {str(e)}"]
-
+    """List public repositories for a GitHub user/org. Requires Authorization: Bearer <github_token> header."""
+    try:
+        token = get_bearer_token(ctx)
+    except ValueError as e:
+        return [f"Authorization error: {str(e)}"]
+    
     url = f"https://api.github.com/users/{user}/repos?per_page=100"
     resp = requests.get(url, headers=_github_headers(token), timeout=20)
     resp.raise_for_status()
     return [r["full_name"] for r in resp.json()]
 
+
 @mcp.tool()
 def repo_readme(repo: str, ctx: Context, ref: str = "") -> str:
-"""Fetch README.md for repo ('owner/name'). Optionally specify ref (branch/tag/sha). Requires Authorization: Bearer <github_token> header."""
-try:
-token = get_bearer_token(ctx)
-except ValueError as e:
-return f"Authorization error: {str(e)}"
-
+    """Fetch README.md for repo ('owner/name'). Optionally specify ref (branch/tag/sha). Requires Authorization: Bearer <github_token> header."""
+    try:
+        token = get_bearer_token(ctx)
+    except ValueError as e:
+        return f"Authorization error: {str(e)}"
+    
     owner, name = repo.split("/", 1)
     url = f"https://api.github.com/repos/{owner}/{name}/readme"
     if ref:
@@ -192,14 +195,15 @@ return f"Authorization error: {str(e)}"
     resp.raise_for_status()
     return resp.text
 
+
 @mcp.tool()
 def repo_file(repo: str, path: str, ctx: Context, ref: str = "") -> str:
-"""Fetch raw file content from a repo at given path. Optionally specify ref. Requires Authorization: Bearer <github_token> header."""
-try:
-token = get_bearer_token(ctx)
-except ValueError as e:
-return f"Authorization error: {str(e)}"
-
+    """Fetch raw file content from a repo at given path. Optionally specify ref. Requires Authorization: Bearer <github_token> header."""
+    try:
+        token = get_bearer_token(ctx)
+    except ValueError as e:
+        return f"Authorization error: {str(e)}"
+    
     owner, name = repo.split("/", 1)
     base = f"https://api.github.com/repos/{owner}/{name}/contents/{path}"
     url = f"{base}?ref={ref}" if ref else base
@@ -209,13 +213,12 @@ return f"Authorization error: {str(e)}"
     resp.raise_for_status()
     return resp.text
 
-if **name** == "**main**":
-host = os.getenv("MCP_HOST", "127.0.0.1")
-port = int(os.getenv("MCP_PORT", "8103"))
-mcp.run(transport="streamable-http", host=host, port=port)
 
+if __name__ == "__main__":
+    host = os.getenv("MCP_HOST", "127.0.0.1")
+    port = int(os.getenv("MCP_PORT", "8103"))
+    mcp.run(transport="streamable-http", host=host, port=port)
 ```
-
     </Tab>
 
 </Tabs>
