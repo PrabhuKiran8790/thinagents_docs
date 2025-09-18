@@ -1,67 +1,176 @@
 ---
-title: Integrating MCP
-description: Plug-and-play context with the Model Context Protocol
+title: MCP with ThinAgents
+description: Minimal guide to connect ThinAgents to MCP servers
 icon: Plug
 ---
 
-Large-language-model agents can only be as helpful as the context they can see. The **Model Context Protocol (MCP)** is an open specification that acts like a universal "USB-C port" for AI—standardising how agents connect to files, APIs and tools. Read the full overview in the [MCP introduction](https://modelcontextprotocol.io/introduction).
+MCP lets agents call external tools over standard transports (stdio, HTTP, SSE). ThinAgents supports all three. Spec: [MCP Transports (2025-06-18)](https://modelcontextprotocol.io/specification/2025-06-18/basic/transports).
 
-## Why MCP?
+### Configure MCP servers on an Agent
 
-MCP helps you build agents and complex workflows on top of LLMs. LLMs frequently need to integrate with data and tools, and MCP provides:
-
-- A growing list of pre-built integrations that your LLM can directly plug into
-- The flexibility to switch between LLM providers and vendors
-- Best practices for securing your data within your infrastructure
-
-## ThinAgents + MCP
-
-```py
+```python
 from thinagents import Agent
 
 agent = Agent(
     name="MCP Agent",
-    model="openai/gpt-4o-mini",
+    model="gemini/gemini-2.0-flash",
     mcp_servers=[
-        {  # Remote services over SSE
+        {
             "transport": "sse",
-            "url": "http://localhost:8100/sse",
+            "url": "http://127.0.0.1:8000/sse",
+            "headers": {"Authorization": "Bearer <API_TOKEN>"}
         },
-        {  # Local filesystem access over stdio
+        {
+            # Local stdio server (e.g., filesystem)
             "transport": "stdio",
             "command": "npx",
-            "args": [
-                "-y",
-                "@modelcontextprotocol/server-filesystem",
-                "/Users/prabhukirankonda/Documents/projects/mcp_test_2_weather",
-            ],
+            "args": ["-y", "@modelcontextprotocol/server-filesystem", "/path/to/dir"],
+            "env": {
+                "...": "..." # Environment variables if needed
+            }
+        },
+        {
+            # Streamable HTTP server (e.g., GitHub)
+            "transport": "http",
+            "url": "http://127.0.0.1:8103",
+            "headers": {"Authorization": "Bearer <GITHUB_TOKEN>"}
         },
     ],
 )
 ```
 
-### Run It Asynchronously
+### Async usage
 
-```py
-async for chunk in agent.astream(
-    "what is the weather in seattle and list the files in the directory that you have access to",
-):
+```python
+# Stream chunks
+async for chunk in agent.astream("what tools are available?"):
     print(chunk.content, end="", flush=True)
 
-# Or get the full response at once (non-streaming but still async)
-response = await agent.arun(
-    "what is the weather in seattle and list the files in the directory that you have access to",
-)
+# Or single response
+response = await agent.arun("list repos for user <USER>")
 print(response.content)
 ```
 
-<Callout title="Async by Design">
-Agents that use MCP must be invoked with asynchronous APIs. Stream chunks with `async for` over `agent.astream(...)` **or** await a single buffered reply via `await agent.arun(...)`.
-</Callout>
+<Tabs items={['SSE Server', 'HTTP Server']}>
+    <Tab value="SSE Server">
+    ```py
+  # examples/mcp_server_sse_weather.py
+  import os
+  import requests
+  from fastmcp import FastMCP
 
-## Supported Transports in ThinAgents
+mcp = FastMCP("Weather SSE Server")
 
-| Transport | Best For | How to Configure |
-|-----------|----------|------------------|
-| **SSE**   | HTTP servers that push events (public APIs, remote micro-services) | `{ "transport": "sse", "url": "…" }` |
-| **stdio** | Local binaries or Node packages you want to spawn (filesystem, CLI tools) | `{ "transport": "stdio", "command": "…", "args": [ … ] }` |
+@mcp.tool
+def weather(location: str) -> str:
+"""Get current weather summary for a city using wttr.in."""
+if not location:
+return "Provide a city name, e.g., 'Seattle'."
+url = f"https://wttr.in/{requests.utils.quote(location)}?format=j1"
+resp = requests.get(url, timeout=15)
+data = resp.json()
+try:
+current = data["current_condition"][0]
+temp_c = current["temp_C"]
+feels_c = current["FeelsLikeC"]
+desc = current["weatherDesc"][0]["value"]
+return f"{location}: {desc}, {temp_c}°C (feels {feels_c}°C)"
+except Exception:
+return f"Could not parse weather for {location}."
+
+if **name** == "**main**":
+host = os.getenv("MCP_HOST", "127.0.0.1")
+port = int(os.getenv("MCP_PORT", "8101"))
+mcp.run(transport="sse", host=host, port=port)
+
+````
+  </Tab>
+  <Tab value="HTTP Server">
+  ```py
+# examples/mcp_server_http_github.py
+import os
+import requests
+from fastmcp import FastMCP, Context
+
+mcp = FastMCP("GitHub HTTP Server", streamable_http_path='/')
+
+def get_bearer_token(ctx: Context) -> str:
+    """Extract bearer token from Authorization header."""
+    request = ctx.get_http_request()
+    headers = request.headers
+    authorization_header = headers.get('Authorization')
+
+    if not authorization_header:
+        raise ValueError("Authorization header missing")
+
+    parts = authorization_header.split()
+    if len(parts) != 2 or parts[0] != 'Bearer':
+        raise ValueError("Invalid Authorization header format")
+
+    return parts[1]
+
+def _github_headers(token: str) -> dict:
+    headers = {"Accept": "application/vnd.github+json"}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    return headers
+
+@mcp.tool()
+def list_repos(user: str, ctx: Context) -> list[str]:
+    """List public repositories for a GitHub user/org. Requires Authorization: Bearer <github_token> header."""
+    try:
+        token = get_bearer_token(ctx)
+    except ValueError as e:
+        return [f"Authorization error: {str(e)}"]
+
+    url = f"https://api.github.com/users/{user}/repos?per_page=100"
+    resp = requests.get(url, headers=_github_headers(token), timeout=20)
+    resp.raise_for_status()
+    return [r["full_name"] for r in resp.json()]
+
+@mcp.tool()
+def repo_readme(repo: str, ctx: Context, ref: str = "") -> str:
+    """Fetch README.md for repo ('owner/name'). Optionally specify ref (branch/tag/sha). Requires Authorization: Bearer <github_token> header."""
+    try:
+        token = get_bearer_token(ctx)
+    except ValueError as e:
+        return f"Authorization error: {str(e)}"
+
+    owner, name = repo.split("/", 1)
+    url = f"https://api.github.com/repos/{owner}/{name}/readme"
+    if ref:
+        url += f"?ref={ref}"
+    resp = requests.get(url, headers={**_github_headers(token), "Accept": "application/vnd.github.raw"}, timeout=20)
+    if resp.status_code == 404:
+        return "README not found."
+    resp.raise_for_status()
+    return resp.text
+
+@mcp.tool()
+def repo_file(repo: str, path: str, ctx: Context, ref: str = "") -> str:
+    """Fetch raw file content from a repo at given path. Optionally specify ref. Requires Authorization: Bearer <github_token> header."""
+    try:
+        token = get_bearer_token(ctx)
+    except ValueError as e:
+        return f"Authorization error: {str(e)}"
+
+    owner, name = repo.split("/", 1)
+    base = f"https://api.github.com/repos/{owner}/{name}/contents/{path}"
+    url = f"{base}?ref={ref}" if ref else base
+    resp = requests.get(url, headers={**_github_headers(token), "Accept": "application/vnd.github.raw"}, timeout=20)
+    if resp.status_code == 404:
+        return "File not found."
+    resp.raise_for_status()
+    return resp.text
+
+if __name__ == "__main__":
+    host = os.getenv("MCP_HOST", "127.0.0.1")
+    port = int(os.getenv("MCP_PORT", "8103"))
+    mcp.run(transport="streamable-http", host=host, port=port)
+````
+
+    </Tab>
+
+</Tabs>
+
+Refer [modelcontextprotocol](https://modelcontextprotocol.io/docs/getting-started/intro) and [FastMCP](https://gofastmcp.com/getting-started/welcome)
